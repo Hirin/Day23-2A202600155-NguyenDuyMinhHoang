@@ -44,24 +44,24 @@ def main() -> int:
     # 01-instrument-fastapi
     results.append(check(
         "01: app /healthz reachable",
-        http_ok("http://localhost:8000/healthz"),
+        http_ok("http://localhost:8001/healthz"),
     ))
     results.append(check(
         "01: /metrics exposes inference_requests_total",
         any("inference_requests_total" in line
-            for line in requests.get("http://localhost:8000/metrics", timeout=3).text.splitlines())
-        if http_ok("http://localhost:8000/metrics") else False,
+            for line in requests.get("http://localhost:8001/metrics", timeout=3).text.splitlines())
+        if http_ok("http://localhost:8001/metrics") else False,
     ))
 
     # 02-prometheus-grafana
     results.append(check("02: Prometheus reachable", http_ok("http://localhost:9090/-/healthy")))
-    results.append(check("02: Grafana reachable", http_ok("http://localhost:3000/api/health")))
+    results.append(check("02: Grafana reachable", http_ok("http://localhost:3001/api/health")))
     results.append(check("02: Alertmanager reachable", http_ok("http://localhost:9093/-/healthy")))
 
     # Verify dashboards loaded (Grafana API)
     try:
         r = requests.get(
-            "http://localhost:3000/api/search?query=Day%2023",
+            "http://localhost:3001/api/search?query=Day%2023",
             auth=("admin", "admin"),
             timeout=3,
         )

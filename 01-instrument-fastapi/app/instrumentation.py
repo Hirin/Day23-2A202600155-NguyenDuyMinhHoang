@@ -69,11 +69,8 @@ def setup_otel() -> None:
         BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True))
     )
     trace.set_tracer_provider(provider)
-    # Auto-instrument FastAPI handlers (creates server spans for every route)
-    from fastapi import FastAPI  # local import: only needed at setup
-
-    FastAPIInstrumentor().instrument()
     _configure_logging()
+    _setup_pyroscope()
 
 
 def _configure_logging() -> None:
@@ -93,6 +90,23 @@ def _configure_logging() -> None:
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
+
+
+def _setup_pyroscope() -> None:
+    pyroscope_url = os.getenv("PYROSCOPE_SERVER_ADDRESS")
+    if not pyroscope_url:
+        return
+    try:
+        import pyroscope
+
+        pyroscope.configure(
+            application_name="inference-api",
+            server_address=pyroscope_url,
+            enable_logging=True,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("pyroscope setup failed: %s", e)
 
 
 def bind_log(name: str) -> structlog.BoundLogger:

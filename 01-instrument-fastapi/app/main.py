@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
+from opentelemetry import context, trace
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 
@@ -68,6 +69,8 @@ def predict(req: PredictRequest) -> PredictResponse:
     start = time.perf_counter()
     span = tracer.start_span("predict")
     span.set_attribute("gen_ai.request.model", req.model)
+    ctx = trace.set_span_in_context(span)
+    token = context.attach(ctx)
 
     try:
         if req.fail:
@@ -117,4 +120,5 @@ def predict(req: PredictRequest) -> PredictResponse:
         )
     finally:
         INFERENCE_ACTIVE.dec()
+        context.detach(token)
         span.end()

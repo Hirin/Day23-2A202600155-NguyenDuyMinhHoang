@@ -1,5 +1,5 @@
 ## Day 23 Track 2 — Full observability stack
-## 7 services. Anchors deck §10 demo + lab tracks 01-05.
+## 9 services (7 core + 2 bonus). Anchors deck §10 demo + lab tracks 01-05.
 ## All ports bound to localhost only — no public exposure.
 
 services:
@@ -9,12 +9,13 @@ services:
       dockerfile: Dockerfile
     container_name: day23-app
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8001:8000"
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: inference-api
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=lab,service.namespace=aicb
       LOG_LEVEL: INFO
+      PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
     depends_on:
       otel-collector:
         condition: service_started
@@ -53,16 +54,18 @@ services:
     ports:
       - "127.0.0.1:9093:9093"
     volumes:
-      - ./02-prometheus-grafana/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./02-prometheus-grafana/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.tpl:ro
     environment:
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/REPLACE/ME}
+    entrypoint: >
+      sh -c 'sed "s|SLACK_WEBHOOK_URL_PLACEHOLDER|$$SLACK_WEBHOOK_URL|" /etc/alertmanager/alertmanager.tpl > /etc/alertmanager/alertmanager.yml && /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml'
     networks: [obs]
 
   grafana:
     image: grafana/grafana:11.3.0
     container_name: day23-grafana
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PW:-admin}
@@ -113,9 +116,47 @@ services:
       - jaeger
     networks: [obs]
 
+  # ── BONUS B1: Pyroscope (eBPF profiling) ──────────────────────
+  pyroscope:
+    image: grafana/pyroscope:1.5.0
+    container_name: day23-pyroscope
+    ports:
+      - "127.0.0.1:4040:4040"
+    networks: [obs]
+
+  # ── BONUS B2: Langfuse (LLM native observability) ─────────────
+  langfuse-web:
+    image: langfuse/langfuse:2
+    container_name: day23-langfuse
+    ports:
+      - "127.0.0.1:3030:3000"
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      NEXTAUTH_SECRET: day23-lab-secret-change-me
+      SALT: day23-lab-salt-change-me
+      NEXTAUTH_URL: http://localhost:3030
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_LOG_LEVEL: info
+    depends_on:
+      langfuse-db:
+        condition: service_started
+    networks: [obs]
+
+  langfuse-db:
+    image: postgres:16-alpine
+    container_name: day23-langfuse-db
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse-db-data:/var/lib/postgresql/data
+    networks: [obs]
+
 volumes:
   prom-data:
   grafana-data:
+  langfuse-db-data:
 
 networks:
   obs:

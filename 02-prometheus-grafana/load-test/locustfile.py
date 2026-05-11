@@ -1,8 +1,8 @@
 """Locust load harness with three scenarios.
 
 Run modes:
-  locust -f locustfile.py --headless -u 10 -r 2  -t 60s --host http://localhost:8000   # baseline
-  locust -f locustfile.py --headless -u 50 -r 10 -t 60s --host http://localhost:8000   # spike
+  locust -f locustfile.py --headless -u 10 -r 2  -t 60s --host http://localhost:8001   # baseline
+  locust -f locustfile.py --headless -u 50 -r 10 -t 60s --host http://localhost:8001   # spike
   ERROR_RATE=0.2 locust -f locustfile.py ...                                            # sustained error
 """
 from __future__ import annotations
